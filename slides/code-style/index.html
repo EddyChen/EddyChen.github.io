@@ -1,0 +1,694 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <title>reveal.js</title>
+
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/reset.min.css">
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/theme/black.min.css" id="theme">
+
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/plugin/highlight/monokai.min.css" id="highlight-theme">
+    <style>
+      .reveal .slides {
+        width: 1024px !important;
+        height: 800px !important;
+      }
+      .reveal pre code.badcode {
+        font-size: 0.53em;
+        line-height: 1.1em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section>
+          <h3 data-id="code-title">聊聊代码规范</h3>
+        </section>
+        <section>
+          <section data-auto-animate>
+            <h4 data-id="code-title">请看一段代码</h4>
+            <pre data-id="code-animation"><code class="hljs badcode" data-trim data-line-numbers>
+              package com.icbc.Fhjs.service;
+
+              /*
+               * 这是一段业务逻辑处理代码
+               */
+              @Service
+              public class busiService{
+
+                public static final String prefix_msg = "FHJS028";
+                private final Logger log = LoggerFactory.getLogger(this.getClass());
+                @Autowired private AccountService accountService;
+                @Autowired private ApipService apipService;
+
+                /**
+                 * 这是实现开户功能的方法
+                 */
+                public AccountBo AccountOpen(CustomerBo customerbo) {
+                  ...
+                }
+              }
+            </code></pre>
+          </section>
+          <section data-auto-animate>
+            <h4 data-id="code-title">请看一段代码</h4>
+            <pre data-id="code-animation"><code class="hljs badcode" data-trim data-line-numbers><script type="text/template">
+              /**
+               * ...
+               */
+              public AccountBo AccountOpen(CustomerBo customerbo) {
+                if (StringUtils.isEmpty(customerbo.getCustomerId())) 
+                {
+                  throw new AccountOpenException("ERR_000001", "无效的开户参数，客户ID为空!");
+                }
+                String account_no = accountService.getByCustomerId(customerbo.getCustomerId());
+                if(StringUtils.isEmpty(account_no)) {
+                  log.info("该用户尚未开户...");
+                  if (StringUtils.isEmtty(customerbo.getMobileNo())) {
+                    log.info("无效的开户参数，客户手机号为空");
+                    throw new AccountOpenException("ERR_000002", "无效的开户参数，客户手机号为空!");
+                  } else {
+                    if (StringUtils.isEmpty(customerbo.getCertType()) || StringUtils.isEmpty(customerbo.getCertNo())) {
+                      log.info("无效的开户参数");
+                      try {
+                        List<Byte> fileContent = new ArrayList<Byte>();
+                        byte[] buffer = new byte[1024];
+                        File certFile = new File(customerbo.getCertFileUri());
+                        FileInputStream certInputStream = new FileInputStream(certFile);
+                        for (int offset=0, count=0; (count=certInputStream.read(buffer, offset, length))!=-1; offset+=count) {
+                          fileContent.append(buffer);
+                        }
+                        String msgId = prefix_msg + nextMsgId();
+                        customerbo = apipService.invokeOcrCert(customerbo, msgId);
+                      } catch(Exception apiExp) {
+                        // TODO
+                        // throw new AccountOpenException("ERR_000009", "无效的开户参数!");
+                        // return "ERR_000001";
+                        exp.printStackTrace();
+                      }
+                    } else {
+                      try {
+                        String msgId = prefix_msg + nextMsgId();
+                        AccountBo accountBo = apipService.invokeOpenAccount(customerbo, msgId);
+                        return accountBo;
+                      } catch(ApipException exp) {
+                        // TODO
+                        exp.printStackTrace();
+                      }
+                    }
+                  }
+                } else {
+                  return AccountBo.builder()
+                    .customerId(customerbo.getCustomerId())
+                    .accountNo(account_no)
+                    .build();
+                }
+              }
+            </script></code></pre>
+          </section>
+        </section>
+        <section>
+          <h3 data-id="code-title">上面两段代码里面有哪些问题？</h3>
+        </section>
+        <section>
+          <section data-auto-animate>
+            <h4 data-id="code-title">分析一下</h4>
+            <pre data-id="code-animation"><code class="hljs badcode" data-trim 
+              data-line-numbers="|1|3-5,14-16|7|9|17">
+              package com.icbc.Fhjs.service;
+
+              /*
+               * 这是一段业务逻辑处理代码
+               */
+              @Service
+              public class busiService{
+
+                public static final String prefix_msg = "FHJS028";
+                private final Logger log = LoggerFactory.getLogger(this.getClass());
+                @Autowired private AccountService accountService;
+                @Autowired private ApipService apipService;
+
+                /**
+                 * 这是实现开户功能的方法
+                 */
+                public AccountBo AccountOpen(CustomerBo customerbo) {
+                  ...
+                }
+              }
+            </code></pre>
+          </section>
+          <section data-auto-animate>
+            <h4 data-id="code-title">分析一下</h4>
+            <pre data-id="code-animation"><code class="hljs badcode" data-trim 
+              data-line-numbers="|6,8|7|9|10|11,13,17|16,23|19-27|18,22,33|28-33,39-42|29-31,40|10,12,15,16,34,45"><script type="text/template">
+              /**
+               * ...
+               */
+              public AccountBo AccountOpen(CustomerBo customerbo) {
+                if (StringUtils.isEmpty(customerbo.getCustomerId())) 
+                {
+                  throw new AccountOpenException("ERR_000001", "无效的开户参数，客户ID为空!");
+                }
+                String account_no = accountService.getByCustomerId(customerbo.getCustomerId());
+                if(StringUtils.isEmpty(account_no)) {
+                  log.info("该用户尚未开户...");
+                  if (StringUtils.isEmtty(customerbo.getMobileNo())) {
+                    log.info("无效的开户参数，客户手机号为空");
+                    throw new AccountOpenException("ERR_000002", "无效的开户参数，客户手机号为空!");
+                  } else {
+                    if (StringUtils.isEmpty(customerbo.getCertType()) || StringUtils.isEmpty(customerbo.getCertNo())) {
+                      log.info("无效的开户参数");
+                      try {
+                        List<Byte> fileContent = new ArrayList<Byte>();
+                        byte[] buffer = new byte[1024];
+                        File certFile = new File(customerbo.getCertFileUri());
+                        FileInputStream certInputStream = new FileInputStream(certFile);
+                        for (int offset=0, count=0; (count=certInputStream.read(buffer, offset, length))!=-1; offset+=count) {
+                          fileContent.append(buffer);
+                        }
+                        String msgId = prefix_msg + nextMsgId();
+                        customerbo = apipService.invokeOcrCert(customerbo, msgId);
+                      } catch(Exception apiExp) {
+                        // TODO
+                        // throw new AccountOpenException("ERR_000009", "无效的开户参数!");
+                        // return "ERR_000001";
+                        exp.printStackTrace();
+                      }
+                    } else {
+                      try {
+                        String msgId = prefix_msg + nextMsgId();
+                        AccountBo accountBo = apipService.invokeOpenAccount(customerbo, msgId);
+                        return accountBo;
+                      } catch(ApipException exp) {
+                        // TODO
+                        exp.printStackTrace();
+                      }
+                    }
+                  }
+                } else {
+                  return AccountBo.builder()
+                    .customerId(customerbo.getCustomerId())
+                    .accountNo(account_no)
+                    .build();
+                }
+              }
+            </script></code></pre>
+          </section>
+        </section>
+        <section>
+          <h4 data-id="code-title">Java代码规范类型</h4>
+          <ol>
+            <li class="fragment fade-up">命名规范
+              <span style="display: inline-block;" class="fragment fade-right">（包名, </span>
+              <span style="display: inline-block;" class="fragment fade-right">类名, </span>
+              <span style="display: inline-block;" class="fragment fade-right">变量名 等）</span>
+            </li>
+            <li class="fragment fade-up">格式规范
+              <span style="display: inline-block;" class="fragment fade-right">（缩进, </span>
+              <span style="display: inline-block;" class="fragment fade-right">括号, </span>
+              <span style="display: inline-block;" class="fragment fade-right">冗余, </span>
+              <span style="display: inline-block;" class="fragment fade-right">换行 等）</span>
+            </li>
+            <li class="fragment fade-up">注释规范
+              <span style="display: inline-block;" class="fragment fade-right">（文档注释, </span>
+              <span style="display: inline-block;" class="fragment fade-right">核心代码注释 等）</span>
+            </li>
+            <li class="fragment fade-up">日志规范
+              <span style="display: inline-block;" class="fragment fade-right">（级别, </span>
+              <span style="display: inline-block;" class="fragment fade-right">内容 等）</span>
+            </li>
+            <li class="fragment fade-up">异常处理规范
+              <span style="display: inline-block;" class="fragment fade-right">（如何记录, </span>
+              <span style="display: inline-block;" class="fragment fade-right">如何处理 等）</span>
+            </li>
+            <li class="fragment fade-up">结构性规范
+              <span style="display: inline-block;" class="fragment fade-right">（架构分层, </span>
+              <span style="display: inline-block;" class="fragment fade-right">功能模块划分 等）</span>
+            </li>
+          </ol>
+        </section>
+        <section>
+          <section>
+            <h3 data-id="code-title">命名规范</h3>
+          </section>
+          <section>
+            <p>包名命名规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  package com.icbc.Fhjs.serviceimpl;
+                </code>
+                <q class="fragment fade-up">包名不能有大写字母，单词间用'.'分隔</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  package com.icbc.fhjs.service.impl;
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>类（接口）名命名规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  public interface iBusiservice {}
+
+                  public class busiService {}
+                </code>
+                <q class="fragment fade-up">开头不能为小写字母，单词分隔时采用驼峰式</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  public interface IBusiService {}
+
+                  public class BusiService {}
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>常量名命名规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  public static final String prefix_msg = "FHJS028";
+
+                  public static final String prefixMsg = "FHJS028";
+                </code>
+                <q class="fragment fade-up">常量名应采用全大字母，单词间以下划线分隔</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  public static final String PREFIX_MSG = "FHJS028";
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>类成员变量命名规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  private CustomerBo customerbo;
+                  private int iCount = 1;
+
+                  public void setICount(int iCount) {}
+                </code>
+                <q class="fragment fade-up">单词间应采用驼峰式分隔，不要使用一个字母的驼峰</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  private CustomerBo customerBo;
+                  private int count = 1;
+                </code>
+              </pre>
+            </div>
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3 data-id="code-title">格式规范</h3>
+          </section>
+          <section>
+            <p>代码缩进规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  public class BusiService {
+                  public void setCount(int count) {
+                         this.count = count;
+                  }
+                  }
+                </code>
+                <q class="fragment fade-up">不同层次的代码采用2/4个空格（非tab）的缩进</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  public class BusiService {
+                    public void setCount(int count) {
+                      this.count = count;
+                    }
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>括号规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  public void setCount(int count) 
+                  {
+                    this.count = count;
+                  }
+                </code>
+                <q class="fragment fade-up">左花括号不用另起一行，左圆括号前请加空格</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  public void setCount (int count) {
+                    this.count = count;
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>空格规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  this.count=count+1;
+                </code>
+                <q class="fragment fade-up">运算符两边各加一个空格</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  this.count = count + 1;
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>冗余代码规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  //public void setCount (int count) {
+                  //  this.count = count;
+                  //}
+                </code>
+                <q class="fragment fade-up">删除冗余代码</q>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>代码换行规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  if (StringUtils.isEmpty(customerbo.getCertType()) || StringUtils.isEmpty(customerbo.getCertNo())) {
+                    return AccountBo.builder().accountNo(accountNo).build();
+                  }
+                </code>
+                <q class="fragment fade-up">类、函数签名单行长度 &lt; 80; 逻辑代码单行长度 &lt; 120;</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  if (StringUtils.isEmpty(customerbo.getCertType()) || 
+                      StringUtils.isEmpty(customerbo.getCertNo())) {
+                    return AccountBo.builder()
+                        .accountNo(accountNo)
+                        .build();
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3 data-id="code-title">注释规范</h3>
+          </section>
+          <section>
+            <p>注释规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  /**
+                   * 这是一段业务逻辑处理代码
+                   * @author: 陈睿丰
+                   */
+                  @Service
+                  public class busiService{
+
+                    /**
+                     * 这是实现开户功能的方法，调用总行API: "/branch/account/open/V2"
+                     * 
+                     * @param CustomerBo 客户信息
+                     * @return AccountBo 账户信息
+                     */
+                    public AccountBo AccountOpen(CustomerBo customerbo) {
+                      // 调用开户API功能
+                    }
+                  }
+                </code>
+                <q class="fragment fade-up">文档型注释必须，核心代码注释可选</q>
+              </pre>
+            </div>
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3 data-id="code-title">日志规范</h3>
+          </section>
+          <section>
+            <p>日志级别规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  } catch (ApiException exp) {
+                    log.info("API调用出错");
+                  }
+                </code>
+                <q class="fragment fade-up">不同的位置使用适当的级别来记录日志</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  } catch (ApiException exp) {
+                    log.error("API调用出错: {}, {}", exp.getErrorCode(), exp.getMessage());
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>日志记录规范</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  public AccountBo openAccount(CustomerBo customerBo) {
+                    log.info("开始执行开户逻辑");
+                    ...
+                    log.info("开户逻辑执行完成");
+                    return accountBo;
+                  }
+                </code>
+                <q class="fragment fade-up">采用适当的日志框架，参数式输出关键参数值</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  public AccountBo openAccount(CustomerBo customerBo) {
+                    log.info("开始执行开户逻辑: {}", customerBo.getCustomerId);
+                    ...
+                    log.info("开户逻辑执行完成: {}", accountBo.getAccountId());
+                    return accountBo;
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3 data-id="code-title">异常处理规范</h3>
+          </section>
+          <section>
+            <p>异常处理</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  } catch (Exception exp) {
+                    exp.printStackTrace();
+                  }
+                </code>
+                <q class="fragment fade-up">不允许打印堆栈，精细化处理，包装自定义异常抛出</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  } catch (ApiException exp) {
+                    log.error("API调用出错: {}, {}", exp.getErrCode(), exp.getErrMsg());
+                    throw new OpenAccountException("ERR_000002", "开户服务异常，请稍后再试", exp);
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>接口异常处理</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers>
+                  HTTP/1.1 200 OK
+                  {
+                    "errorCode": "ERR_000002",
+                    "errorMsg": "开户服务异常，请稍后再试"
+                  }
+                </code>
+                <q class="fragment fade-up">采用RESTful规范定义接口，后台异常时不要返回200</q>
+              </pre>
+            </div>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例：
+                <code class="hljs" data-trim data-line-numbers>
+                  HTTP/1.1 400 BAD_REQUEST
+                  {
+                    "errorCode": "ERR_000002",
+                    "errorMsg": "开户服务异常，请稍后再试"
+                  }
+                </code>
+              </pre>
+            </div>
+          </section>
+        </section>
+        <section>
+          <section>
+            <h3 data-id="code-title">结构性规范</h3>
+          </section>
+          <section>
+            <p>代码分层，职责分明</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">错误示例: 
+                <code class="hljs" data-trim data-line-numbers><script type="text/template">
+                  @RestController
+                  public class BusiController {
+
+                    @PostMapping("/account/")
+                    public String openAccount(@RequestBody CustomerDto customerDto) {
+                      if (StringUtils.isEmpty(customerDto.getCustomerId())) {
+                        return "{\"resultCode\", " + resultCode + "}";
+                      }
+                      String sql = "select * from customers c where customer_id=?";
+                      List<Map<String, Object>> customerMapList = 
+                        jdbcTemplate.executeQuery(sql, customerDto.getCustomerId());
+                      ...
+                      String url = "/mybank/branch/account/open/V2";
+                      Map<String, String> params = new HashMap<String, String>();
+                      ...
+                      Response response = Invokers.invokeSync(url, params);
+                      ...
+                      return "{\"resultCode\", " + resultCode + "}";
+                    }
+                  }
+                </script></code>
+                <q class="fragment fade-up">所有的业务逻辑代码都写在一个函数内</q>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>代码分层，职责分明</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例: MVC分层处理
+                <code class="hljs" data-trim data-line-numbers><script type="text/template">
+                  @RestController
+                  public class BusiController {
+
+                    @PostMapping("/account/")
+                    public AccountDto openAccount(@RequestBody CustomerDto customerDto) {
+                      if (StringUtils.isEmpty(customerDto.getCustomerId())) {
+                        log.error("客户编号不合法: {}", customerDto.getCustomerId());
+                        throw new OpenAccountException("ERR_000001", "客户编号不合法，请重新输入");
+                      }
+                      CustomerBo customerBo = ParserUtils.from(customerDto);
+                      /** 业务逻辑处理 */
+                      AccountBo accountBo = accountService.openAccount(customerBo);
+                      AccountDto accountDto = ParserUtils.from(accountBo);
+                      return accountDto;
+                    }
+                  }
+                </script></code>
+                <q class="fragment fade-up">controller层只负责参数检查，转换后传给service层</q>
+              </pre>
+            </div>
+          </section>
+          <section>
+            <p>代码分层，职责分明</p>
+            <div class="fragment fade-up">
+              <pre data-id="code-animation">正确示例: 
+                <code class="hljs" data-trim data-line-numbers><script type="text/template">
+                  @Service
+                  public class AccountService {
+
+                    public AccountBo openAccount(CustomerBo customerBo) {
+                      customerRepository.findByCustomerId(customerBo.getCustomerId());
+                      byte[] idCardContent = FileUtils.readFrom(customerBo.getIdCardFile());
+                      customerBo.setIdCardContent(idCardContent);
+                      String msgId = msgService.nextId(PREFIX_MSG);
+                      AccountBo accountBo = apiService.invokeOpenAccount(customerBo, msgId);
+                      accountRepository.save(accountBo);
+                      return accountBo;
+                    }
+                  }
+                </script></code>
+                <q class="fragment fade-up">将通用的算法模块封装为Utils</q>
+                <q class="fragment fade-up">将可复用的业务逻辑模块封装为Service</q>
+              </pre>
+            </div>
+          </section>
+        </section>
+        <section>
+          <h4 data-id="code-title">总结：Java代码规范</h4>
+          <ol>
+            <li class="fragment fade-up">命名规范</li>
+            <li class="fragment fade-up">格式规范</li>
+            <li class="fragment fade-up">注释规范</li>
+            <li class="fragment fade-up">日志规范</li>
+            <li class="fragment fade-up">异常处理规范</li>
+            <li class="fragment fade-up">结构性规范</li>
+          </ol>
+        </section>
+        <section>
+          <h3 data-id="code-title">Q&A</h3>
+        </section>
+        <section>
+          <h3 data-id="code-title">感谢聆听</h3>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/reveal.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/plugin/notes/notes.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/plugin/markdown/markdown.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/reveal.js/4.1.0/plugin/highlight/highlight.min.js"></script>
+    <script>
+      // More info about initialization & config:
+      // - https://revealjs.com/initialization/
+      // - https://revealjs.com/config/
+      Reveal.initialize({
+        hash: true,
+
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+      });
+    </script>
+  </body>
+</html>
